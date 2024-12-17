@@ -179,14 +179,14 @@ static int mobility_evaluate(uint64_t player_board, uint64_t opponent_board) {
 }
 
 static const int POSITION_VALUES[8][8] = {
-    {3, -2, 2, 2, 2, 2, -2, 3},
-    {-2, -3, 1, 1, 1, 1, -3, -2},
+    {100, -50, 2, 2, 2, 2, -50, 100},
+    {-50, -100, 1, 1, 1, 1, -100, -50},
     {2, 1, 0, 0, 0, 0, 1, 2},
     {2, 1, 0, 0, 0, 0, 1, 2},
     {2, 1, 0, 0, 0, 0, 1, 2},
     {2, 1, 0, 0, 0, 0, 1, 2},
-    {-2, -3, 1, 1, 1, 1, -3, -2},
-    {3, -2, 2, 2, 2, 2, -2, 3}
+    {-50, -100, 1, 1, 1, 1, -100, -50},
+    {100, -50, 2, 2, 2, 2, -50, 100}
 };
 
 static int positional_evaluate(uint64_t player_board, uint64_t opponent_board) {

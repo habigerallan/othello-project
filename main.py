@@ -1,5 +1,7 @@
 import players
 import othello
+import time
+import argparse
 import pandas as pd
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm
@@ -9,10 +11,6 @@ from openpyxl.styles import Alignment, Font
 
 
 def play_single_game(black_eval, white_eval, depth):
-    """
-    Simulate a single game between two players.
-    If black_eval or white_eval is 'random_player', use a RandomPlayer instead of MiniMaxPlayer.
-    """
     if black_eval == "random_player":
         black_player = players.RandomPlayer()
     else:
@@ -34,11 +32,6 @@ def play_single_game(black_eval, white_eval, depth):
 
 
 def test_evaluations(black_evals, white_evals, depth=3, games_per_pair=10):
-    """
-    Test given sets of evaluation functions on black and white sides.
-    For each black_eval in black_evals and each white_eval in white_evals,
-    play `games_per_pair` games and gather results.
-    """
     tasks = [
         (black_eval, white_eval)
         for black_eval in black_evals
@@ -64,7 +57,6 @@ def test_evaluations(black_evals, white_evals, depth=3, games_per_pair=10):
 
             pbar.update(1)
 
-    # Convert cumulative results to percentages
     results = []
     for (black_eval, white_eval), counts in results_dict.items():
         total_games_for_pair = counts["Black Wins"] + counts["White Wins"] + counts["Ties"]
@@ -80,9 +72,6 @@ def test_evaluations(black_evals, white_evals, depth=3, games_per_pair=10):
 
 
 def format_excel_sheet(sheet):
-    """
-    Apply formatting to an Excel sheet.
-    """
     for row in sheet.iter_rows():
         for cell in row:
             cell.alignment = Alignment(horizontal="center", vertical="center")
@@ -90,10 +79,6 @@ def format_excel_sheet(sheet):
 
 
 def results_to_excel(results, black_evals, white_evals, filename="othello_results.xlsx"):
-    """
-    Save the results to an Excel file with detailed win/loss/tie percentages.
-    """
-    # Create a pivot-like structure for rates
     black_win_rates = pd.DataFrame(index=black_evals, columns=white_evals, dtype=float)
     white_win_rates = pd.DataFrame(index=black_evals, columns=white_evals, dtype=float)
     tie_rates = pd.DataFrame(index=black_evals, columns=white_evals, dtype=float)
@@ -109,15 +94,53 @@ def results_to_excel(results, black_evals, white_evals, filename="othello_result
     with pd.ExcelWriter(filename, engine='openpyxl') as writer:
         pd.DataFrame(results).to_excel(writer, sheet_name="Detailed Results", index=False)
 
-        # Apply formatting
         wb = writer.book
         sheet = wb["Detailed Results"]
         format_excel_sheet(sheet)
 
     print(f"Results saved to {filename}")
 
-
 def main():
+    parser = argparse.ArgumentParser(description="Run Othello evaluation testing with adjustable depth.")
+    parser.add_argument(
+        "--depth",
+        type=int,
+        default=4,
+        help="The depth for the MiniMaxPlayer evaluation (default is 4)."
+    )
+    parser.add_argument(
+        "--games_per_pair",
+        type=int,
+        default=10,
+        help="Number of games per evaluation pair (default is 10)."
+    )
+    parser.add_argument(
+        "--play",
+        action="store_true",
+        help="Whether you would like to play or not (default is False)."
+    )
+    parser.add_argument(
+        "--time",
+        action="store_true",
+        help="Whether you would like to time a game or not (default is False)."
+    )
+
+    args = parser.parse_args()
+    
+    depth = args.depth
+    games_per_pair = args.games_per_pair
+    play_flag = args.play
+    time_flag = args.time
+
+    if play_flag:
+        if time_flag:
+            print("Not timing due to HumanPlayer presence.")
+            
+        white_player = players.MiniMaxPlayer(max_depth=depth, evaluation_strategy="combined_evaluate")
+        game = othello.OthelloGame(black_player=players.HumanPlayer(), white_player=white_player, debug=True)
+        game.play()
+        return
+
     ALL_FUNCTIONS = [
         "win_evaluate", "material_evaluate", "mobility_evaluate",
         "positional_evaluate", "corner_evaluate", "edge_evaluate",
@@ -125,20 +148,38 @@ def main():
         "random_evaluate", "random_player"
     ]
 
-    # white_player = players.MiniMaxPlayer(
-    #         max_depth=8, evaluation_strategy="combined_evaluate", debug=False
-    #     )
-    # game = othello.OthelloGame(black_player=white_player, white_player=players.HumanPlayer(), debug=True)
-    # result = game.play()
+    if time_flag:
+        print("Timing games for each evaluation function...")
+        timing_results = []
+        
+        for function in ALL_FUNCTIONS:
+            if function == "random_player":
+                black_player = players.RandomPlayer()
+            else:
+                black_player = players.MiniMaxPlayer(max_depth=depth, evaluation_strategy=function)
 
-    depth = 6
-    games_per_pair = 100
+            white_player = players.RandomPlayer()
+            
+            start_time = time.perf_counter()
+            
+            game = othello.OthelloGame(black_player=black_player, white_player=white_player)
+            game.play()
+            
+            end_time = time.perf_counter()
+            elapsed_time = end_time - start_time
+            
+            timing_results.append({"Evaluation Function": function, "Time (s)": elapsed_time})
+        
+        timing_df = pd.DataFrame(timing_results)
+        timing_df.to_excel("timing_results_" + str(depth) + ".xlsx", index=False)
+        print("Timing results saved to 'timing_results_" + str(depth) + ".xlsx'.")
+        return
 
     black_subset = ["combined_evaluate"]
     white_subset = ALL_FUNCTIONS
     results = test_evaluations(black_subset, white_subset, depth, games_per_pair)
-    results_to_excel(results, black_subset, white_subset, filename="combined_vs_all.xlsx")
-
+    name = f"combined_vs_all_depth_{depth}"
+    results_to_excel(results, black_subset, white_subset, filename=name + ".xlsx")
 
 if __name__ == '__main__':
     main()

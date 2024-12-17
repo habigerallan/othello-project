@@ -320,17 +320,19 @@ static PyObject* OthelloGame_make_move(OthelloGameObject* self) {
 
 static PyObject* OthelloGame_play(OthelloGameObject* self, PyObject* Py_UNUSED(ignored)) {
     while (!is_game_over(self)) {
+        if (self->debug) {
+            OthelloGame_display_board(self);
+        }
+
         PyObject* result = OthelloGame_make_move(self);
         if (result == NULL) {
             return NULL;
         }
         Py_DECREF(result);
-        if (self->debug) {
-            OthelloGame_display_board(self);
-        }
     }
 
     if (self->debug) {
+        OthelloGame_display_board(self);
         printf("Game over!\n");
     }
 
